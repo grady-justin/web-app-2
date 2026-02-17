@@ -50,22 +50,25 @@ class CompaniesTest < ActionDispatch::IntegrationTest
     assert_select "input[name='state']"
   end
 
-  test "create adds a new company and redirects to index" do
-    # Submit the new company form
-    post "/companies", params: { name: "Tesla", city: "Austin", state: "TX" }
+  test "create fails with invalid company data and re-renders new" do
+    assert_no_difference('Company.count') do
+      post "/companies", params: { company: { name: "" } } # Missing name
+    end
+    assert_response :unprocessable_entity
+    assert_select "div.alert", "Company could not be created."
+    assert_template :new
+  end
 
-    # Verify redirect to companies index
-    assert_response :redirect
+  test "create adds a new company and redirects to its show page on success" do
+    assert_difference('Company.count', 1) do
+      post "/companies", params: { company: { name: "New Company Name" } }
+    end
+    company = Company.last
+    assert_redirected_to company_path(company)
     follow_redirect!
     assert_response :success
-
-    # Verify the new company appears on the index page
-    assert_select "li", text: "Tesla"
-
-    # Verify the company was saved to the database
-    company = Company.find_by(name: "Tesla")
-    assert_equal "Austin", company["city"]
-    assert_equal "TX", company["state"]
+    assert_select "div.notice", "Company was successfully created."
+    assert_select "h1", text: "New Company Name"
   end
 
   test "edit displays the edit company form with existing data" do
